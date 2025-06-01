@@ -44,8 +44,10 @@ int main() {
       int nota = convertirNota(palabra);
       if (nota != -1)
         notas.push_back(nota);
-      else
+      else {
         std::cout << "Nota no reconocida: " << palabra << '\n';
+        return 2;
+      }
     }
   }
 
