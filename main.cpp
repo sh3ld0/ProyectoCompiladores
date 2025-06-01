@@ -2,33 +2,57 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <utility>
 #include <vector>
 
-std::map<std::string, int> notaAMidi = {
-    {"C", 0},  {"C#", 1}, {"D", 2},  {"D#", 3}, {"E", 4},   {"F", 5},
-    {"F#", 6}, {"G", 7},  {"G#", 8}, {"A", 9},  {"A#", 10}, {"B", 11}};
+namespace Music {
+enum class Tone {
+  C = 0,
+  CS = 1,
+  D = 2,
+  DS = 3,
+  E = 4,
+  F = 5,
+  FS = 6,
+  G = 7,
+  GS = 8,
+  A = 9,
+  AS = 10,
+  B = 11
+};
 
-int convertirNota(std::string notaCompleta) {
-  std::string nota = "";
-  std::string octava = "";
+const std::map<std::string, Tone> string_to_tone = {
+    {"C", Tone::C},   {"C#", Tone::CS}, {"D", Tone::D},   {"D#", Tone::DS},
+    {"E", Tone::E},   {"F", Tone::F},   {"F#", Tone::FS}, {"G", Tone::G},
+    {"G#", Tone::GS}, {"A", Tone::A},   {"A#", Tone::AS}, {"B", Tone::B}};
 
-  for (char c : notaCompleta) {
-    if (isdigit(c)) {
-      octava += c;
-    } else {
-      nota += c;
-    }
+int note_to_pitch(std::string note) {
+  std::string note_tone = "";
+  std::string note_octave = "";
+
+  for (char c : note)
+    if (std::isdigit(c))
+      note_octave += c;
+    else
+      note_tone += c;
+
+  auto octave = 12 * std::stoi(note_octave);
+  auto tone = std::to_underlying(string_to_tone.at(note_tone));
+
+  return tone + octave;
+}
+}; // namespace Music
+
+int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    std::cerr
+        << "Ingrese el nombre del archio a compilar como primer argumento\n";
+    return 1;
   }
 
-  if (notaAMidi.find(nota) == notaAMidi.end())
-    return -1;
-  return 12 + (stoi(octava) * 12) + notaAMidi[nota];
-}
-
-int main() {
-  std::ifstream archivo("resources/musica.txt");
+  std::ifstream archivo(argv[1]);
   if (!archivo.is_open()) {
-    std::cerr << "No se pudo abrir el archivo de entrada.\n";
+    std::cerr << "No se pudo abrir el archivo " << argv[1] << '\n';
     return 1;
   }
 
@@ -41,11 +65,11 @@ int main() {
     if (palabra == "play") {
       playMode = true;
     } else if (playMode) {
-      int nota = convertirNota(palabra);
+      int nota = Music::note_to_pitch(palabra);
       if (nota != -1)
         notas.push_back(nota);
       else {
-        std::cout << "Nota no reconocida: " << palabra << '\n';
+        std::cout << "Símbolo no reconocido: " << palabra << '\n';
         return 2;
       }
     }
@@ -60,7 +84,7 @@ int main() {
   int duracion = 120; // duración de nota
   int canal = 0;
   int cont = 0;
-  for (int nota : notas) {
+  for (auto nota : notas) {
     cont++;
     if (cont == 8) {
       tick += duracion;
@@ -74,7 +98,5 @@ int main() {
 
   midi.sortTracks(); // ordenar eventos por tiempo por si las dudas
   midi.write("salida.mid");
-
-  std::cout << "Archivo MIDI 'salida.mid' generado correctamente.\n";
   return 0;
 }
