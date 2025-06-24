@@ -1,121 +1,97 @@
-#include "MidiFile.h"
-#include <fstream>
+// main.cpp
+#include "lexer.hpp"
+#include "tokens.hpp"
+#include "midifile/src/MidiFile.h"
 #include <iostream>
+#include <vector>
 #include <map>
-#include <numeric>
-#include <sstream>
+#include <string>
+#include <cstdlib>
 
-namespace Music {
-enum class Tone {
-  C = 0,
-  CS = 1,
-  D = 2,
-  DS = 3,
-  E = 4,
-  F = 5,
-  FS = 6,
-  G = 7,
-  GS = 8,
-  A = 9,
-  AS = 10,
-  B = 11
-};
+using namespace smf;
 
-struct NoteLength {
-  int num, dem;
+void debug_print_tokens(const std::vector<Token>& tokens) {
+    auto tokenTypeToString = [](TokenType type) {
+        switch (type) {
+            case TokenType::NOTE_NAME: return "NOTE_NAME";
+            case TokenType::OCTAVE: return "OCTAVE";
+            case TokenType::DASH: return "DASH";
+            case TokenType::FRACTION: return "FRACTION";
+            case TokenType::REST: return "REST";
+            case TokenType::LOOP: return "LOOP";
+            case TokenType::NUMBER: return "NUMBER";
+            case TokenType::LBRACE: return "LBRACE";
+            case TokenType::RBRACE: return "RBRACE";
+            case TokenType::END_OF_FILE: return "EOF";
+            case TokenType::INVALID: return "INVALID";
+            default: return "UNKNOWN";
+        }
+    };
 
-  int to_int() const {
-    return num / dem;
-  }
-
-  NoteLength operator*(int n) const {
-    int f = std::gcd(num * n, dem);
-    return {num * n / f, dem / f};
-  }
-
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const NoteLength& duration) {
-    return os << duration.num << '/' << duration.dem;
-  }
-
-  friend std::istream& operator>>(std::istream& is, NoteLength& duration) {
-    is >> duration.num;
-
-    if (is.peek() != '/') {
-      duration.dem = 1;
-    } else {
-      is.ignore(1);
-      is >> duration.dem;
+    for (const auto& token : tokens) {
+        std::cout << "Línea " << token.line << ":\t"
+                  << tokenTypeToString(token.type) << "\t-> \""
+                  << token.lexeme << "\"\n";
     }
-
-    return is;
-  }
-};
-
-const std::map<std::string, Tone> string_to_tone = {
-    {"C", Tone::C},   {"C#", Tone::CS}, {"D", Tone::D},   {"D#", Tone::DS},
-    {"E", Tone::E},   {"F", Tone::F},   {"F#", Tone::FS}, {"G", Tone::G},
-    {"G#", Tone::GS}, {"A", Tone::A},   {"A#", Tone::AS}, {"B", Tone::B}};
-
-std::pair<int, NoteLength> to_key_and_length(std::string&& note_str) {
-  std::stringstream ss(std::move(note_str));
-
-  std::string note_tone = "";
-  std::string note_octave = "";
-
-  for (char c = ss.get(); c != '-'; c = ss.get())
-    if (std::isdigit(c))
-      note_octave += c;
-    else
-      note_tone += c;
-
-  NoteLength length;
-  ss >> length;
-
-  auto octave = 12 * std::stoi(note_octave);
-  auto tone = std::to_underlying(string_to_tone.at(note_tone));
-
-  return {tone + octave, length};
 }
-}; // namespace Music
 
-int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    std::cerr
-        << "Ingrese el nombre del archio a compilar como primer argumento\n";
-    return 1;
-  }
+int main() {
+    std::string filename = "resources/musica.txt";
+    auto tokens = tokenize(filename);
 
-  std::ifstream in_file(argv[1]);
-  if (!in_file.is_open()) {
-    std::cerr << "No se pudo abrir el archivo " << argv[1] << '\n';
-    return 1;
-  }
+    // --- Mapa de notas a números MIDI ---
+    std::map<std::string, int> notaAMidi = {
+        {"C", 0}, {"C#", 1}, {"D", 2}, {"D#", 3}, {"E", 4}, {"F", 5},
+        {"F#", 6}, {"G", 7}, {"G#", 8}, {"A", 9}, {"A#", 10}, {"B", 11}
+    };
 
-  smf::MidiFile midi;
-  int measure_duration = 4 * 60;
-  midi.setTicksPerQuarterNote(measure_duration / 4);
-  int tick = 0;
-  int track = 0;
-  int canal = 0;
+    MidiFile midi;
+    int measure_duration = 4 * 60;
+    midi.setTicksPerQuarterNote(measure_duration / 4);
+    int tick = 0;
+    int track = 0;
+    int canal = 0;
 
-  std::string word;
-  while (in_file >> word) {
-    auto [key, length] = Music::to_key_and_length(std::move(word));
-    if (key == -1) {
-      std::cout << "Símbolo no reconocido: " << word << '\n';
-      return 2;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i].type == TokenType::NOTE_NAME) {
+            if (i + 3 < tokens.size() &&
+                tokens[i + 1].type == TokenType::OCTAVE &&
+                tokens[i + 2].type == TokenType::DASH &&
+                tokens[i + 3].type == TokenType::FRACTION) {
+
+                std::string nota = tokens[i].lexeme;
+                int octava = std::stoi(tokens[i + 1].lexeme);
+                std::string fraccion = tokens[i + 3].lexeme;
+
+                int midi_note = 12 + octava * 12 + notaAMidi[nota];
+                int num = std::stoi(fraccion.substr(0, fraccion.find('/')));
+                int den = std::stoi(fraccion.substr(fraccion.find('/') + 1));
+                int duracion = (measure_duration * num) / den;
+
+                midi.addNoteOn(track, tick, canal, midi_note, 100);
+                midi.addNoteOff(track, tick + duracion, canal, midi_note);
+                tick += duracion;
+
+                i += 3; //saltar tokens que ya procesamos
+            }
+        } else if (tokens[i].type == TokenType::REST) {
+            if (i + 2 < tokens.size() &&
+                tokens[i + 1].type == TokenType::DASH &&
+                tokens[i + 2].type == TokenType::FRACTION) {
+
+                std::string fraccion = tokens[i + 2].lexeme;
+                int num = std::stoi(fraccion.substr(0, fraccion.find('/')));
+                int den = std::stoi(fraccion.substr(fraccion.find('/') + 1));
+                int duracion = (measure_duration * num) / den;
+
+                tick += duracion;
+                i += 2;
+            }
+        }
     }
 
-    int duration = (length * measure_duration).to_int();
-    midi.addNoteOn(track, tick, canal, key, 100);
-    midi.addNoteOff(track, tick + duration, canal, key);
-    tick += duration;
-  }
-
-  in_file.close();
-
-  midi.sortTracks(); // ordenar eventos por tiempo por si las dudas
-  midi.write("salida.mid");
-  return 0;
+    midi.sortTracks();
+    midi.write("salida.mid");
+    std::cout << "Archivo MIDI 'salida.mid' generado correctamente.\n";
+    return 0;
 }
