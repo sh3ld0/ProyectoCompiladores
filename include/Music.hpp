@@ -36,6 +36,8 @@ struct Rest {
   Length length;
 };
 
+struct Bar {};
+
 struct Midi {
   smf::MidiFile midi;
   const char* name;

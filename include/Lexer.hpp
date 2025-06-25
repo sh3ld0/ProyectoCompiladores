@@ -7,7 +7,7 @@
 #include <variant>
 
 namespace Lexer {
-using Token = std::variant<Music::Note, Music::Rest>;
+using Token = std::variant<Music::Note, Music::Rest, Music::Bar>;
 using Tokens = std::queue<Token>;
 
 Tokens analyze(std::ifstream& file);
