@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
   try {
     Lexer::Tokens tokens = Lexer::analyze(file);
     auto ast = Parser::analyze(tokens);
-    // ast->print(std::cout);
+    ast->print(std::cout);
 
     Music::Midi context{argv[2], 4 * 60};
     ast->evaluate(context);

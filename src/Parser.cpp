@@ -2,6 +2,12 @@
 #include <map>
 
 namespace {
+const std::map<Music::Tone, std::string> tone_to_string = {
+    {Music::Tone::C, "C"},   {Music::Tone::CS, "C#"}, {Music::Tone::D, "D"},
+    {Music::Tone::DS, "D#"}, {Music::Tone::E, "E"},   {Music::Tone::F, "F"},
+    {Music::Tone::FS, "F#"}, {Music::Tone::G, "G"},   {Music::Tone::GS, "G#"},
+    {Music::Tone::A, "A"},   {Music::Tone::AS, "A#"}, {Music::Tone::B, "B"}};
+
 struct TokenNode : Parser::Node {
   Lexer::Token token;
 
@@ -19,24 +25,16 @@ struct TokenNode : Parser::Node {
         },
         token);
   }
-  virtual void print(std::ostream& os) const override {
-    static const std::map<Music::Tone, std::string> tone_to_string = {
-        {Music::Tone::C, "C"},   {Music::Tone::CS, "C#"},
-        {Music::Tone::D, "D"},   {Music::Tone::DS, "D#"},
-        {Music::Tone::E, "E"},   {Music::Tone::F, "F"},
-        {Music::Tone::FS, "F#"}, {Music::Tone::G, "G"},
-        {Music::Tone::GS, "G#"}, {Music::Tone::A, "A"},
-        {Music::Tone::AS, "A#"}, {Music::Tone::B, "B"}};
-
+  virtual void print(std::ostream& os,
+                     const std::string& indent = "") const override {
     std::visit(
         [&]<class T>(const T& token) {
-          if constexpr (std::is_same_v<T, Music::Note>)
-            os << tone_to_string.at(token.tone) << token.octave << '-'
+          if constexpr (std::is_same_v<T, Music::Note>) {
+            os << indent << tone_to_string.at(token.tone) << token.octave
                << token.length.num << '/' << token.length.dem << '\n';
-          else if constexpr (std::is_same_v<T, Music::Rest>)
-            os << "M-" << token.length.num << '/' << token.length.dem << '\n';
-          else
-            static_assert(false, "non-exhaustive visitor");
+          } else if constexpr (std::is_same_v<T, Music::Rest>) {
+            os << indent << token.length.num << '/' << token.length.dem << '\n';
+          }
         },
         token);
   }
@@ -47,8 +45,9 @@ struct EndNode : Parser::Node {
   virtual void evaluate(Music::Midi& context) const override {
     context.write();
   }
-  virtual void print(std::ostream& os) const override {
-    os << "END\n";
+  virtual void print(std::ostream& os,
+                     const std::string& indent = "") const override {
+    os << indent << "END\n";
   }
 };
 
@@ -64,9 +63,11 @@ struct ConnectorNode : Parser::Node {
     left->evaluate(context);
     right->evaluate(context);
   }
-  virtual void print(std::ostream& os) const override {
-    left->print(os);
-    right->print(os);
+  virtual void print(std::ostream& os,
+                     const std::string& indent = "") const override {
+    os << indent << "Connector\n";
+    left->print(os, indent + "├─ ");
+    right->print(os, indent + "└─ ");
   }
 };
 }; // namespace
