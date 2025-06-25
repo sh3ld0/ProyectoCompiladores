@@ -12,7 +12,7 @@ const std::map<Music::Tone, std::string> tone_to_string = {
 
 struct LengthNode : Parser::Node {
   using List = std::unique_ptr<LengthNode>;
-  static constexpr bool is_token_lengthed(const Lexer::Token& token) {
+  static constexpr bool check(const Lexer::Token& token) {
     return std::visit(
         []<class T>(const T&) -> bool {
           if constexpr (std::is_same_v<T, Music::Note>)
@@ -71,7 +71,7 @@ struct LengthNode : Parser::Node {
 
 struct BarNode : Parser::Node {
   using List = std::unique_ptr<BarNode>;
-  static constexpr bool is_token_bar(const Lexer::Token& token) {
+  static constexpr bool check(const Lexer::Token& token) {
     return std::visit(
         []<class T>(const T&) -> bool {
           return std::is_same_v<T, Music::Bar>;
@@ -83,7 +83,7 @@ struct BarNode : Parser::Node {
   List next;
 
   static LengthNode::List build_list(Lexer::Tokens& tokens) {
-    if (!tokens.empty() && LengthNode::is_token_lengthed(tokens.front())) {
+    if (!tokens.empty() && LengthNode::check(tokens.front())) {
       Lexer::Token token = Lexer::poll_token(tokens);
       return std::make_unique<LengthNode>(token, build_list(tokens));
     } else
@@ -117,10 +117,10 @@ struct ScoreNode : Parser::Node {
   BarNode::List score;
 
   static BarNode::List build_list(Lexer::Tokens& tokens) {
-    if (!tokens.empty() && BarNode::is_token_bar(tokens.front())) {
+    if (!tokens.empty() && BarNode::check(tokens.front())) {
       tokens.pop();
-      auto bar = BarNode::build_list(tokens);
-      return std::make_unique<BarNode>(std::move(bar), build_list(tokens));
+      return std::make_unique<BarNode>(BarNode::build_list(tokens),
+                                       build_list(tokens));
     } else
       return nullptr;
   }
