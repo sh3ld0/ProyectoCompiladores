@@ -1,14 +1,5 @@
-#ifndef LEXER_HPP
-#define LEXER_HPP
-
-#include "Music.hpp"
-#include <fstream>
-#include <queue>
+#include "Lexer.hpp"
 #include <regex>
-#include <variant>
-
-namespace Lexer {
-using Token = std::variant<Music::Note, Music::Rest>;
 
 namespace {
 const std::map<std::string, Music::Tone> tone_from_string = {
@@ -34,7 +25,7 @@ static Music::Length length_from_string(std::string&& str) {
 const static std::regex note_regex{R"(([A-Ga-g](#)?)(\d+)-(\d+(/\d+)?))"};
 const static std::regex rest_regex{R"(M-(\d+(/\d+)))"};
 
-Token match(const std::string& word) {
+Lexer::Token match(const std::string& word) {
   std::smatch match;
   if (std::regex_match(word, match, note_regex))
     return Music::Note{tone_from_string.at(match[1]), std::stoi(match[3]),
@@ -47,9 +38,8 @@ Token match(const std::string& word) {
 }
 } // namespace
 
-using Tokens = std::queue<Token>;
-
-inline Tokens analyze(std::ifstream& file) {
+namespace Lexer {
+Tokens analyze(std::ifstream& file) {
   int line_number;
   Tokens tokens;
 
@@ -65,7 +55,7 @@ inline Tokens analyze(std::ifstream& file) {
   return tokens;
 }
 
-inline Token poll_token(Tokens& tokens) {
+Token poll_token(Tokens& tokens) {
   if (tokens.empty())
     throw std::out_of_range("expected another token");
 
@@ -74,5 +64,3 @@ inline Token poll_token(Tokens& tokens) {
   return token;
 }
 }; // namespace Lexer
-
-#endif

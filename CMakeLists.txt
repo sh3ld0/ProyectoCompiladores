@@ -11,8 +11,11 @@ set(SOURCES
  midifile/src/MidiEventList.cpp
  midifile/src/MidiFile.cpp
  midifile/src/MidiMessage.cpp
+ src/Lexer.cpp
+ src/Music.cpp
+ src/Parser.cpp
  main.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_include_directories(${PROJECT_NAME} PUBLIC midifile/include/) 
+target_include_directories(${PROJECT_NAME} PUBLIC include/ midifile/include/) 

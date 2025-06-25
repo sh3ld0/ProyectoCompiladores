@@ -1,16 +1,8 @@
-#include "Lexer.hpp"
-#include <memory>
-
-namespace Parser {
-struct Node {
-  virtual ~Node() = default;
-  virtual void evaluate(Music::Midi&) const = 0;
-  virtual void print(std::ostream& os) const = 0;
-};
-using NodePtr = std::unique_ptr<Node>;
+#include "Parser.hpp"
+#include <map>
 
 namespace {
-struct TokenNode : Node {
+struct TokenNode : Parser::Node {
   Lexer::Token token;
 
   TokenNode(Lexer::Token&& _token) : token{_token} {}
@@ -50,7 +42,7 @@ struct TokenNode : Node {
   }
 };
 
-struct EndNode : Node {
+struct EndNode : Parser::Node {
   virtual ~EndNode() override = default;
   virtual void evaluate(Music::Midi& context) const override {
     context.write();
@@ -60,11 +52,11 @@ struct EndNode : Node {
   }
 };
 
-struct ConnectorNode : Node {
-  NodePtr left;
-  NodePtr right;
+struct ConnectorNode : Parser::Node {
+  Parser::Ast left;
+  Parser::Ast right;
 
-  ConnectorNode(NodePtr&& _left, NodePtr&& _right) :
+  ConnectorNode(Parser::Ast&& _left, Parser::Ast&& _right) :
       left{std::move(_left)},
       right{std::move(_right)} {}
   virtual ~ConnectorNode() override = default;
@@ -79,7 +71,7 @@ struct ConnectorNode : Node {
 };
 }; // namespace
 
-inline NodePtr analyze(Lexer::Tokens& tokens) {
+Parser::Ast Parser::analyze(Lexer::Tokens& tokens) {
   if (tokens.empty())
     return std::make_unique<EndNode>();
 
@@ -87,4 +79,3 @@ inline NodePtr analyze(Lexer::Tokens& tokens) {
   return std::make_unique<ConnectorNode>(std::move(token_node),
                                          analyze(tokens));
 }
-}; // namespace Parser
