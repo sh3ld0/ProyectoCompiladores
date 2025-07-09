@@ -6,6 +6,8 @@
 
 namespace Parser {
 struct Node {
+  std::unique_ptr<Node> next;
+  Node(std::unique_ptr<Node>&& _next) : next(std::move(_next)) {}
   virtual ~Node() = default;
   virtual void evaluate(Music::Midi&) const = 0;
   virtual void print(std::ostream& os,

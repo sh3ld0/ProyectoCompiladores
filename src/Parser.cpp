@@ -1,39 +1,44 @@
 #include "Parser.hpp"
+#include "Lexer.hpp"
 #include <memory>
 #include <print>
 
 namespace {
-struct LengthNode : Parser::Node {
-  Lexer::Token token;
-  std::unique_ptr<LengthNode> next;
-
-  LengthNode(const Lexer::Token& _token, std::unique_ptr<LengthNode>&& _next) :
-      token{_token},
-      next{std::move(_next)} {}
-  virtual ~LengthNode() override = default;
+struct NoteNode : Parser::Node {
+  Music::Note note;
+  NoteNode(Music::Note _note, Parser::Ast&& _next) :
+      note{_note},
+      Node{std::move(_next)} {}
+  virtual ~NoteNode() override = default;
   virtual void evaluate(Music::Midi& context) const override {
-    std::visit(
-        [&context]<class T>(const T& token) {
-          if constexpr (std::is_same_v<T, Music::Note> ||
-                        std::is_same_v<T, Music::Note>)
-            context.addNote(token);
-          else
-            throw std::runtime_error("Non lengthed token in unexpected place");
-        },
-        token);
+    context.addNote(note);
     if (next)
       next->evaluate(context);
   }
   virtual void print(std::ostream& os,
                      const std::string& indent = "") const override {
-    std::visit(
-        [&]<class T>(const T& token) {
-          if constexpr (std::is_same_v<T, Music::Note> ||
-                        std::is_same_v<T, Music::Rest>)
-            std::print(os, "{}{}\n", indent, token);
-        },
-        token);
+    std::print(os, "{}{}\n", indent, note);
+    if (next)
+      next->print(os, indent + "  ");
+    else
+      os << indent << "End Bar\n";
+  }
+};
 
+struct RestNode : Parser::Node {
+  Music::Rest rest;
+  RestNode(Music::Rest _rest, Parser::Ast&& _next) :
+      rest{_rest},
+      Node{std::move(_next)} {}
+  virtual ~RestNode() override = default;
+  virtual void evaluate(Music::Midi& context) const override {
+    context.addRest(rest);
+    if (next)
+      next->evaluate(context);
+  }
+  virtual void print(std::ostream& os,
+                     const std::string& indent = "") const override {
+    std::print(os, "{}{}\n", indent, rest);
     if (next)
       next->print(os, indent + "  ");
     else
@@ -43,11 +48,10 @@ struct LengthNode : Parser::Node {
 
 struct SignatureNode : Parser::Node {
   Music::Length length;
-  std::unique_ptr<Node> next;
 
   SignatureNode(Music::Length _length, Parser::Ast&& _next) :
       length(_length),
-      next(std::move(_next)) {}
+      Node(std::move(_next)) {}
   virtual ~SignatureNode() override = default;
   virtual void evaluate(Music::Midi& context) const override {
     if (next)
@@ -64,12 +68,11 @@ struct SignatureNode : Parser::Node {
 };
 
 struct BarNode : Parser::Node {
-  std::unique_ptr<LengthNode> bar;
-  std::unique_ptr<Node> next;
+  Parser::Ast bar;
 
-  BarNode(std::unique_ptr<LengthNode>&& _bar, std::unique_ptr<Node>&& _next) :
+  BarNode(Parser::Ast&& _bar, Parser::Ast&& _next) :
       bar{std::move(_bar)},
-      next{std::move(_next)} {}
+      Node{std::move(_next)} {}
   virtual void evaluate(Music::Midi& context) const override {
     if (bar)
       bar->evaluate(context);
@@ -90,16 +93,22 @@ struct BarNode : Parser::Node {
   }
 };
 
-std::unique_ptr<LengthNode> build_bar(Lexer::Tokens& tokens) {
-  static constexpr auto check = []<class T>(const T&) -> bool {
-    return (std::is_same_v<T, Music::Note> || std::is_same_v<T, Music::Rest>);
-  };
-
-  if (!tokens.empty() && std::visit(check, tokens.front())) {
-    Lexer::Token token = Lexer::poll_token(tokens);
-    return std::make_unique<LengthNode>(token, build_bar(tokens));
-  } else
+Parser::Ast build_bar(Lexer::Tokens& tokens) {
+  if (tokens.empty())
     return nullptr;
+
+  return std::visit(
+      [&tokens]<class T>(const T& token) -> Parser::Ast {
+        if constexpr (std::is_same_v<T, Music::Note>) {
+          tokens.pop();
+          return std::make_unique<NoteNode>(token, build_bar(tokens));
+        } else if constexpr (std::is_same_v<T, Music::Rest>) {
+          tokens.pop();
+          return std::make_unique<RestNode>(token, build_bar(tokens));
+        } else
+          return nullptr;
+      },
+      tokens.front());
 }
 }; // namespace
 
