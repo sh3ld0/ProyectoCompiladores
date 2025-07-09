@@ -28,7 +28,7 @@ Length& Length::operator+=(Length other) {
 }
 
 bool Length::operator==(Length other) const {
-  return (num == other.num && dem == other.dem);
+  return (num * other.dem) == (dem * other.num);
 }
 
 Midi::Midi(const char* _name, int _measure_duration) :

@@ -3,13 +3,17 @@
 #include <print>
 
 namespace Checker {
-void analyze(const Parser::Ast& ast) {
+void analyze(const Parser::Ast& ast, Music::Length signature) {
   if (!ast)
     return;
 
   auto bar_node = dynamic_cast<Parser::BarNode*>(ast.get());
-  if (!bar_node)
-    return analyze(ast->next);
+  if (!bar_node) {
+    auto signature_node = dynamic_cast<Parser::SignatureNode*>(ast.get());
+    if (signature_node)
+      signature = signature_node->length;
+    return analyze(ast->next, signature);
+  }
 
   Music::Length measure{0, 1};
   auto lengthed_node = bar_node->bar.get();
@@ -25,9 +29,9 @@ void analyze(const Parser::Ast& ast) {
   }
 
   std::print("Bar length: {}\n", measure);
-  if (measure != Music::Length(3, 4))
-    throw Checker::LengthError(measure, {3, 4});
+  if (measure != signature)
+    throw Checker::LengthError(measure, signature);
 
-  analyze(ast->next);
+  analyze(ast->next, signature);
 }
 } // namespace Checker

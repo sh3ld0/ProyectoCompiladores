@@ -14,7 +14,7 @@ struct LengthError : SemanticError {
           "Bar length of {} when time signature expected {}", bar, measure)) {}
 };
 
-void analyze(const Parser::Ast&);
+void analyze(const Parser::Ast&, Music::Length = {1, 1});
 } // namespace Checker
 
 #endif
