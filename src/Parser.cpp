@@ -1,48 +1,24 @@
 #include "Parser.hpp"
-#include "Lexer.hpp"
-#include <map>
 #include <memory>
+#include <print>
 
 namespace {
-const std::map<Music::Tone, std::string> tone_to_string = {
-    {Music::Tone::C, "C"},   {Music::Tone::CS, "C#"}, {Music::Tone::D, "D"},
-    {Music::Tone::DS, "D#"}, {Music::Tone::E, "E"},   {Music::Tone::F, "F"},
-    {Music::Tone::FS, "F#"}, {Music::Tone::G, "G"},   {Music::Tone::GS, "G#"},
-    {Music::Tone::A, "A"},   {Music::Tone::AS, "A#"}, {Music::Tone::B, "B"}};
-
 struct LengthNode : Parser::Node {
-  using List = std::unique_ptr<LengthNode>;
-  static constexpr bool check(const Lexer::Token& token) {
-    return std::visit(
-        []<class T>(const T&) -> bool {
-          if constexpr (std::is_same_v<T, Music::Note>)
-            return true;
-          else if constexpr (std::is_same_v<T, Music::Rest>)
-            return true;
-          else
-            return false;
-        },
-        token);
-  };
-
   Lexer::Token token;
-  List next;
+  std::unique_ptr<LengthNode> next;
 
-  LengthNode(const Lexer::Token& _token, List&& _next) :
+  LengthNode(const Lexer::Token& _token, std::unique_ptr<LengthNode>&& _next) :
       token{_token},
       next{std::move(_next)} {}
   virtual ~LengthNode() override = default;
   virtual void evaluate(Music::Midi& context) const override {
     std::visit(
         [&context]<class T>(const T& token) {
-          if constexpr (std::is_same_v<T, Music::Note>)
+          if constexpr (std::is_same_v<T, Music::Note> ||
+                        std::is_same_v<T, Music::Note>)
             context.addNote(token);
-          else if constexpr (std::is_same_v<T, Music::Rest>)
-            context.addRest(token);
-          else if constexpr (std::is_same_v<T, Music::Bar>)
-            throw std::runtime_error("Bar in unexpected place");
           else
-            static_assert(false, "non-exhaustive visitor");
+            throw std::runtime_error("Non lengthed token in unexpected place");
         },
         token);
     if (next)
@@ -52,13 +28,9 @@ struct LengthNode : Parser::Node {
                      const std::string& indent = "") const override {
     std::visit(
         [&]<class T>(const T& token) {
-          if constexpr (std::is_same_v<T, Music::Note>) {
-            os << indent << tone_to_string.at(token.tone) << token.octave << '-'
-               << token.length.num << '/' << token.length.dem << '\n';
-          } else if constexpr (std::is_same_v<T, Music::Rest>) {
-            os << indent << "R-" << token.length.num << '/' << token.length.dem
-               << '\n';
-          }
+          if constexpr (std::is_same_v<T, Music::Note> ||
+                        std::is_same_v<T, Music::Rest>)
+            std::print(os, "{}{}\n", indent, token);
         },
         token);
 
@@ -69,28 +41,33 @@ struct LengthNode : Parser::Node {
   }
 };
 
-struct BarNode : Parser::Node {
-  using List = std::unique_ptr<BarNode>;
-  static constexpr bool check(const Lexer::Token& token) {
-    return std::visit(
-        []<class T>(const T&) -> bool {
-          return std::is_same_v<T, Music::Bar>;
-        },
-        token);
-  };
+struct SignatureNode : Parser::Node {
+  Music::Length length;
+  std::unique_ptr<Node> next;
 
-  LengthNode::List bar;
-  List next;
-
-  static LengthNode::List build_list(Lexer::Tokens& tokens) {
-    if (!tokens.empty() && LengthNode::check(tokens.front())) {
-      Lexer::Token token = Lexer::poll_token(tokens);
-      return std::make_unique<LengthNode>(token, build_list(tokens));
-    } else
-      return nullptr;
+  SignatureNode(Music::Length _length, Parser::Ast&& _next) :
+      length(_length),
+      next(std::move(_next)) {}
+  virtual ~SignatureNode() override = default;
+  virtual void evaluate(Music::Midi& context) const override {
+    if (next)
+      next->evaluate(context);
   }
+  virtual void print(std::ostream& os,
+                     const std::string& indent = "") const override {
+    std::print(os, "{}Time signature {}\n", indent, length);
+    if (next)
+      next->print(os, indent + "  ");
+    else
+      std::print(os, "{}End score\n", indent);
+  }
+};
 
-  BarNode(LengthNode::List&& _bar, List&& _next) :
+struct BarNode : Parser::Node {
+  std::unique_ptr<LengthNode> bar;
+  std::unique_ptr<Node> next;
+
+  BarNode(std::unique_ptr<LengthNode>&& _bar, std::unique_ptr<Node>&& _next) :
       bar{std::move(_bar)},
       next{std::move(_next)} {}
   virtual void evaluate(Music::Midi& context) const override {
@@ -102,48 +79,46 @@ struct BarNode : Parser::Node {
   }
   virtual void print(std::ostream& os,
                      const std::string& indent = "") const override {
-    os << indent << "Bar\n";
+    std::print(os, "{}Bar\n", indent);
     if (bar)
       bar->print(os, indent + "  ");
 
     if (next)
       next->print(os, indent + "  ");
     else
-      os << indent << "End score\n";
+      std::print(os, "{}End score\n", indent);
   }
 };
 
-struct ScoreNode : Parser::Node {
-  BarNode::List score;
+std::unique_ptr<LengthNode> build_bar(Lexer::Tokens& tokens) {
+  static constexpr auto check = []<class T>(const T&) -> bool {
+    return (std::is_same_v<T, Music::Note> || std::is_same_v<T, Music::Rest>);
+  };
 
-  static BarNode::List build_list(Lexer::Tokens& tokens) {
-    if (!tokens.empty() && BarNode::check(tokens.front())) {
-      tokens.pop();
-      auto bar = BarNode::build_list(tokens);
-      return std::make_unique<BarNode>(std::move(bar), build_list(tokens));
-    } else
-      return nullptr;
-  }
-
-  ScoreNode(Lexer::Tokens& tokens) : score{build_list(tokens)} {}
-  virtual void evaluate(Music::Midi& context) const override {
-    if (score)
-      score->evaluate(context);
-    context.write();
-  }
-  virtual void print(std::ostream& os,
-                     const std::string& indent = "") const override {
-    os << indent << "Score\n";
-    if (score)
-      score->print(os, indent + "  ");
-  }
-};
+  if (!tokens.empty() && std::visit(check, tokens.front())) {
+    Lexer::Token token = Lexer::poll_token(tokens);
+    return std::make_unique<LengthNode>(token, build_bar(tokens));
+  } else
+    return nullptr;
+}
 }; // namespace
 
 Parser::Ast Parser::analyze(Lexer::Tokens& tokens) {
-  auto ans = std::make_unique<ScoreNode>(tokens);
-  if (!tokens.empty())
-    throw std::runtime_error("Trailing tokens");
+  if (tokens.empty())
+    return nullptr;
 
-  return ans;
+  auto token = Lexer::poll_token(tokens);
+  return std::visit(
+      [&tokens]<class T>(const T& token) -> Parser::Ast {
+        if constexpr (std::is_same_v<T, Music::Note> ||
+                      std::is_same_v<T, Music::Rest>)
+          throw std::runtime_error("Free note not allowed");
+        else if constexpr (std::is_same_v<T, Music::Signature>)
+          return std::make_unique<SignatureNode>(token.length, analyze(tokens));
+        else if constexpr (std::is_same_v<T, Music::Bar>) {
+          auto bar = build_bar(tokens);
+          return std::make_unique<BarNode>(std::move(bar), analyze(tokens));
+        }
+      },
+      token);
 }

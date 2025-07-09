@@ -25,6 +25,7 @@ static Music::Length length_from_string(std::string&& str) {
 const static std::regex note_regex{R"(([A-Ga-g](#)?)(\d+)-(\d+(/\d+)?))"};
 const static std::regex rest_regex{R"(R-(\d+(/\d+)))"};
 const static std::regex bar_regex{R"(\|)"};
+const static std::regex signature_regex{R"(SIGNATURE-(\d+(/\d+)))"};
 
 Lexer::Token match(const std::string& word) {
   std::smatch match;
@@ -34,6 +35,9 @@ Lexer::Token match(const std::string& word) {
 
   if (std::regex_match(word, match, rest_regex))
     return Music::Rest{length_from_string(match[1])};
+
+  if (std::regex_match(word, match, signature_regex))
+    return Music::Signature{length_from_string(match[1])};
 
   if (std::regex_match(word, match, bar_regex))
     return Music::Bar{};

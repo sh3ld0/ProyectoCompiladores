@@ -14,6 +14,7 @@ set(SOURCES
  src/Lexer.cpp
  src/Music.cpp
  src/Parser.cpp
+ src/Checker.cpp
  main.cpp
 )
 

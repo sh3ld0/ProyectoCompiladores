@@ -1,3 +1,4 @@
+#include "Checker.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include <iostream>
@@ -31,6 +32,14 @@ int main(int argc, char* argv[]) {
   } catch (std::runtime_error& i_a) {
     std::cerr << "Syntax error\n";
     std::cerr << i_a.what() << '\n';
+    return 1;
+  }
+
+  try {
+    Checker::analyze(ast);
+  } catch (Checker::SemanticError& s_e) {
+    std::cerr << "Semantics error\n";
+    std::cerr << s_e.what() << '\n';
     return 1;
   }
 
