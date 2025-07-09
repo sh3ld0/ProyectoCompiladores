@@ -1,3 +1,6 @@
+#ifndef PARSER_HPP
+#define PARSER_HPP
+
 #include "Lexer.hpp"
 #include <memory>
 
@@ -12,3 +15,5 @@ struct Node {
 using Ast = std::unique_ptr<Node>;
 Ast analyze(Lexer::Tokens& tokens);
 }; // namespace Parser
+
+#endif
