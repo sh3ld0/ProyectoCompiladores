@@ -45,5 +45,5 @@ int main(int argc, char* argv[]) {
 
   Music::Midi context{argv[2], 4 * 60};
   ast->evaluate(context);
-  std::cout << "Archivo " << argv[2] << " generado correctamente.\n";
+  std::cout << "File " << argv[2] << " generated correctly.\n";
 }

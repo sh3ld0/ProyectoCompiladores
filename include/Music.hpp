@@ -22,9 +22,13 @@ enum class Tone {
 
 struct Length {
   int num, dem;
+  Length() = default;
+  Length(int, int);
 
   int to_int() const;
+  Length& operator+=(Length);
   Length operator*(int n) const;
+  bool operator==(Length) const;
 };
 
 struct Note {

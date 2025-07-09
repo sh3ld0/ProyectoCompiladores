@@ -2,6 +2,12 @@
 #include <numeric>
 
 namespace Music {
+Length::Length(int n, int d) {
+  auto f = std::gcd(n, d);
+  num = n / f;
+  dem = d / f;
+}
+
 int Length::to_int() const {
   return num / dem;
 }
@@ -9,6 +15,20 @@ int Length::to_int() const {
 Length Length::operator*(int n) const {
   int f = std::gcd(num * n, dem);
   return {num * n / f, dem / f};
+}
+
+Length& Length::operator+=(Length other) {
+  int n = num * other.dem + other.num * dem;
+  int d = dem * other.dem;
+  int f = std::gcd(n, d);
+  num = n / f;
+  dem = d / f;
+
+  return *this;
+}
+
+bool Length::operator==(Length other) const {
+  return (num == other.num && dem == other.dem);
 }
 
 Midi::Midi(const char* _name, int _measure_duration) :

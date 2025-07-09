@@ -1,4 +1,6 @@
 #include "Checker.hpp"
+#include "Parser.hpp"
+#include <print>
 
 namespace Checker {
 void analyze(const Parser::Ast& ast) {
@@ -10,10 +12,21 @@ void analyze(const Parser::Ast& ast) {
     return analyze(ast->next);
 
   Music::Length measure{0, 1};
-  auto note_node = bar_node->bar.get();
-  while (note_node) {
-    note_node = note_node->next.get();
+  auto lengthed_node = bar_node->bar.get();
+  while (lengthed_node) {
+    auto node_not = dynamic_cast<Parser::NoteNode*>(lengthed_node);
+    if (node_not) {
+      measure += node_not->note.length;
+    } else {
+      auto rest_node = dynamic_cast<Parser::RestNode*>(lengthed_node);
+      measure += rest_node->rest.length;
+    }
+    lengthed_node = lengthed_node->next.get();
   }
+
+  std::print("Bar length: {}\n", measure);
+  if (measure != Music::Length(3, 4))
+    throw Checker::LengthError(measure, {3, 4});
 
   analyze(ast->next);
 }
