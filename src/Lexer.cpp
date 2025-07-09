@@ -44,17 +44,11 @@ Lexer::Token match(const std::string& word) {
 
 namespace Lexer {
 Tokens analyze(std::ifstream& file) {
-  int line_number;
   Tokens tokens;
 
-  std::string line;
-  while (std::getline(file, line)) {
-    std::istringstream iss(std::move(line));
-    std::string word;
-    while (iss >> word)
-      tokens.emplace(match(word));
-    line_number++;
-  }
+  std::string word;
+  while (file >> word)
+    tokens.emplace(match(word));
 
   return tokens;
 }

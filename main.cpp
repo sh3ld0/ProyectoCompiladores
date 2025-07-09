@@ -1,3 +1,4 @@
+#include "Lexer.hpp"
 #include "Parser.hpp"
 #include <iostream>
 
@@ -14,17 +15,26 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  Lexer::Tokens tokens;
   try {
-    Lexer::Tokens tokens = Lexer::analyze(file);
-    auto ast = Parser::analyze(tokens);
-    ast->print(std::cout);
-
-    Music::Midi context{argv[2], 4 * 60};
-    ast->evaluate(context);
+    tokens = Lexer::analyze(file);
   } catch (std::invalid_argument& i_a) {
-    std::cout << i_a.what() << '\n';
+    std::cerr << "Lexical error\n";
+    std::cerr << i_a.what() << '\n';
     return 1;
   }
 
+  Parser::Ast ast;
+  try {
+    ast = Parser::analyze(tokens);
+    ast->print(std::cout);
+  } catch (std::runtime_error& i_a) {
+    std::cerr << "Syntax error\n";
+    std::cerr << i_a.what() << '\n';
+    return 1;
+  }
+
+  Music::Midi context{argv[2], 4 * 60};
+  ast->evaluate(context);
   std::cout << "Archivo " << argv[2] << " generado correctamente.\n";
 }

@@ -119,8 +119,8 @@ struct ScoreNode : Parser::Node {
   static BarNode::List build_list(Lexer::Tokens& tokens) {
     if (!tokens.empty() && BarNode::check(tokens.front())) {
       tokens.pop();
-      return std::make_unique<BarNode>(BarNode::build_list(tokens),
-                                       build_list(tokens));
+      auto bar = BarNode::build_list(tokens);
+      return std::make_unique<BarNode>(std::move(bar), build_list(tokens));
     } else
       return nullptr;
   }
