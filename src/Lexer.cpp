@@ -23,7 +23,7 @@ static Music::Length length_from_string(std::string&& str) {
 }
 
 const static std::regex note_regex{R"(([A-Ga-g](#)?)(\d+)-(\d+(/\d+)?))"};
-const static std::regex rest_regex{R"(R-(\d+(/\d+)))"};
+const static std::regex rest_regex{R"(R-(\d+(/\d+)?))"};
 const static std::regex bar_regex{R"(\|)"};
 const static std::regex signature_regex{R"(SIGNATURE-(\d+(/\d+)))"};
 
