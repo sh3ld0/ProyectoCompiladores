@@ -5,14 +5,14 @@ from fractions import Fraction
 pitches = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 octaves = [3, 4, 5]
 lengths = ["1", "1/2", "1/4", "1/8", "2/4", "3/4", "1/16"]
-length_fractions = [Fraction(l) for l in lengths]
+length_fractions = [Fraction(length) for length in lengths]
 
 # Lista de posibles compases
 time_signatures = [Fraction(3, 4), Fraction(4, 4), Fraction(6, 8)]
 
 
 def random_length(max_length):
-    valid = [l for l in length_fractions if l <= max_length]
+    valid = [length for length in length_fractions if length <= max_length]
     return random.choice(valid) if valid else None
 
 
@@ -46,34 +46,31 @@ def generate_bar(time_sig):
 
 
 def generate_score(n_symbols):
-    output = []
+    out = []
     symbol_count = 0
-    current_signature = random.choice(time_signatures)
-    output.append(
-        f"SIGNATURE-{current_signature.numerator}/{current_signature.denominator}"
-    )
+    signature = random.choice(time_signatures)
+    out.append(f"SIGNATURE-{signature.numerator}/{signature.denominator}")
 
     while symbol_count < n_symbols:
-        # Probabilidad de cambiar compás
         if random.random() < 0.15:
-            current_signature = random.choice(time_signatures)
-            output.append(
-                f"SIGNATURE-{current_signature.numerator}/{current_signature.denominator}"
+            signature = random.choice(time_signatures)
+            out.append(
+                f"SIGNATURE-{signature.numerator}/{signature.denominator}"
             )
 
-        bar = generate_bar(current_signature)
-        symbols_in_bar = len(bar.split()) - 1  # Excluye "|"
+        bar = generate_bar(signature)
+        symbols_in_bar = len(bar.split()) - 1
         if symbol_count + symbols_in_bar > n_symbols:
             break
-        output.append(bar)
+        out.append(bar)
         symbol_count += symbols_in_bar
 
-    return "\n".join(output)
+    return "\n".join(out)
 
 
 if __name__ == "__main__":
     N = int(input("N? "))
-    output_file = f"score.txt"
+    output_file = "score.txt"
     score_text = generate_score(N)
 
     with open(output_file, "w") as f:
