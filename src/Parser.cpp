@@ -33,8 +33,7 @@ void NoteNode::evaluate(Music::Midi& context) const {
     next->evaluate(context);
 }
 
-void NoteNode::NoteNode::print(std::ostream& os,
-                               const std::string& indent) const {
+void NoteNode::print(std::ostream& os, const std::string& indent) const {
   std::print(os, "{}{}\n", indent, note);
   if (next)
     next->print(os, indent + "  ");
