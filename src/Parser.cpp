@@ -2,26 +2,6 @@
 #include "Lexer.hpp"
 #include <print>
 
-namespace {
-Parser::Ast build_bar(Lexer::Tokens& tokens) {
-  if (tokens.empty())
-    return nullptr;
-
-  return std::visit(
-      [&tokens]<class T>(const T& token) -> Parser::Ast {
-        if constexpr (std::is_same_v<T, Music::Note>) {
-          tokens.pop();
-          return std::make_unique<Parser::NoteNode>(token, build_bar(tokens));
-        } else if constexpr (std::is_same_v<T, Music::Rest>) {
-          tokens.pop();
-          return std::make_unique<Parser::RestNode>(token, build_bar(tokens));
-        } else
-          return nullptr;
-      },
-      tokens.front());
-}
-}; // namespace
-
 namespace Parser {
 NoteNode::NoteNode(Music::Note _note, Ast&& _next) :
     note{_note},
@@ -102,6 +82,26 @@ void BarNode::print(std::ostream& os, const std::string& indent = "") const {
   else
     std::print(os, "{}End score\n", indent);
 }
+
+namespace {
+Ast build_bar(Lexer::Tokens& tokens) {
+  if (tokens.empty())
+    return nullptr;
+
+  return std::visit(
+      [&tokens]<class T>(const T& token) -> Ast {
+        if constexpr (std::is_same_v<T, Music::Note>)
+          return tokens.pop(),
+                 std::make_unique<NoteNode>(token, build_bar(tokens));
+        else if constexpr (std::is_same_v<T, Music::Rest>)
+          return tokens.pop(),
+                 std::make_unique<RestNode>(token, build_bar(tokens));
+        else
+          return nullptr;
+      },
+      tokens.front());
+}
+}; // namespace
 
 Ast analyze(Lexer::Tokens& tokens) {
   if (tokens.empty())
